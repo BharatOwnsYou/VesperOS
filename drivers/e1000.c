@@ -4,7 +4,7 @@
 #include "../include/dma.h"
 #include "../include/mmio.h"
 
-/* ---- register map (8254x software developer's manual, ch. 13) ---- */
+/* ---- register map---- */
 #define R_CTRL    0x0000
 #define R_STATUS  0x0008
 #define R_EERD    0x0014
@@ -46,7 +46,7 @@
 typedef struct { u32 addr_lo, addr_hi; u16 length; u16 csum; u8 status; u8 errors; u16 special; } rx_desc_t;
 typedef struct { u32 addr_lo, addr_hi; u16 length; u8 cso; u8 cmd; u8 status; u8 css; u16 special; } tx_desc_t;
 
-/* DMA memory: identity-mapped (no paging), so virtual == physical. */
+/* DMA memory: is identity mapped so there is no paging so  it isvirtual == physical. */
 static volatile rx_desc_t rx_ring[RX_DESCS] __attribute__((aligned(128)));
 static volatile tx_desc_t tx_ring[TX_DESCS] __attribute__((aligned(128)));
 static u8 rx_bufs[RX_DESCS][BUF_SIZE] __attribute__((aligned(16)));
@@ -126,7 +126,7 @@ static int e1000_send(netif_t *nif, const u8 *frame, u16 len) {
     d->css = 0;
     d->special = 0;
     d->status = 0;
-    d->cmd = 0x0B;                                /* EOP | IFCS | RS */
+    d->cmd = 0x0B;                                
     tx_tail = (u16)((tx_tail + 1) % TX_DESCS);
     net_mb();
     wr(R_TDT, tx_tail);
@@ -134,16 +134,16 @@ static int e1000_send(netif_t *nif, const u8 *frame, u16 len) {
 }
 
 static void e1000_poll(netif_t *nif) {
-    while (rx_ring[rx_cur].status & 1) {                        /* DD */
+    while (rx_ring[rx_cur].status & 1) {                        
         volatile rx_desc_t *d = &rx_ring[rx_cur];
         u16 len = d->length;
-        if ((d->status & 2) && d->errors == 0 && len >= ETH_HLEN && len <= BUF_SIZE)  /* EOP, no errors */
+        if ((d->status & 2) && d->errors == 0 && len >= ETH_HLEN && len <= BUF_SIZE) 
             netif_rx(nif, rx_bufs[rx_cur], len);
         else
             nif->rx_errors++;
         d->status = 0;
         net_mb();
-        wr(R_RDT, rx_cur);                                      /* hand the descriptor back */
+        wr(R_RDT, rx_cur);                                      /* this will hand the descriptor back */
         rx_cur = (u16)((rx_cur + 1) % RX_DESCS);
     }
     u32 now = net_time_ms();
@@ -183,13 +183,13 @@ int e1000_probe(const pci_device_t *d) {
     wr(R_IMC, 0xFFFFFFFFu);
     (void)rd(R_ICR);
 
-    /* link: set-link-up + auto speed detect; clear link-reset, PHY-reset, VLAN-mode, invert-loss-of-signal */
+    /* auto speed detect stuff (PHY also) */
     u32 ctrl = rd(R_CTRL);
     ctrl |= CTRL_SLU | CTRL_ASDE;
     ctrl &= ~((1u << 3) | (1u << 7) | (1u << 30) | (1u << 31));
     wr(R_CTRL, ctrl);
 
-    /* MAC address: receive-address register 0 (loaded from EEPROM by hardware), EEPROM as fallback */
+    /* MAC address */
     u32 ral = rd(R_RAL0), rah = rd(R_RAH0);
     u8 mac[6] = { (u8)ral, (u8)(ral >> 8), (u8)(ral >> 16), (u8)(ral >> 24), (u8)rah, (u8)(rah >> 8) };
     bool zero = true, ones = true;
@@ -222,7 +222,7 @@ int e1000_probe(const pci_device_t *d) {
     wr(R_RDT, RX_DESCS - 1);
     if (is_82574) wr(R_RXDCTL, rd(R_RXDCTL) | (1u << 25));     /* queue enable */
 
-    /* TX ring: all slots start "done" so they look free */
+    /* tx ring */
     for (int i = 0; i < TX_DESCS; i++) { tx_ring[i].status = 1; tx_ring[i].cmd = 0; }
     tx_tail = 0;
     wr(R_TDBAL, dma_lo((const void *)tx_ring));
@@ -232,9 +232,9 @@ int e1000_probe(const pci_device_t *d) {
     wr(R_TDT, 0);
     if (is_82574) wr(R_TXDCTL, rd(R_TXDCTL) | (1u << 25));
     wr(R_TIPG, 0x0060200A);
-    wr(R_TCTL, TCTL_EN | TCTL_PSP | (0x10u << 4) | (0x40u << 12));   /* CT=15, COLD=64 (full duplex) */
+    wr(R_TCTL, TCTL_EN | TCTL_PSP | (0x10u << 4) | (0x40u << 12));   
     net_mb();
-    wr(R_RCTL, RCTL_EN | RCTL_BAM | RCTL_SECRC);                      /* 2048-byte buffers, strip CRC */
+    wr(R_RCTL, RCTL_EN | RCTL_BAM | RCTL_SECRC);                      /* these have 2048-byte buffers */
 
     netif_t *nif = netif_register("e1000", name, mac, e1000_send, e1000_poll);
     if (!nif) { netdrv_fail("too many network interfaces"); return -1; }
