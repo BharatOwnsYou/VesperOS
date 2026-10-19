@@ -1,0 +1,30 @@
+VesperOS 4, kernel 0.10 "Nebula"
+
+Copyright (C) 2026 the VesperOS project authors.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; version 2 of the License only.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+The full text of the GNU General Public License version 2 can be
+found at: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+
+---
+
+Third-party components:
+- kernel/font8x16.h is rasterized from GNU Unifont (fonts-unifont),
+  dual-licensed GPLv2+ with font exception / SIL OFL. Used here under
+  the GPLv2+ terms, consistent with this project's own license.
+- GRUB (the bootloader used to load this kernel) is separately licensed
+  under GPLv3 and is not itself part of this codebase - it is an
+  external, unmodified dependency invoked at boot time, not linked into
+  or distributed as part of the VesperOS kernel binary.
