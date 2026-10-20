@@ -15,6 +15,10 @@
 #include "../drivers/usb_uhci.h"
 #include "../drivers/xhci.h"
 #include "../drivers/diskdetect.h"
+#include "../drivers/ahci.h"
+#include "../drivers/nvme.h"
+#include "blockdev.h"
+#include "diskcmd.h"
 #include "../net/hespernetd.h"
 #include "../net/netcmd.h"
 #include "../net/netutil.h"
@@ -132,6 +136,10 @@ static void cmd_help(void) {
         "  mouse                      show current PS/2 / USB HID mouse state\n"
         "  whoami / adduser / su / users   user bookkeeping (no real auth)\n"
         "  lsdisk                     list detected storage controllers\n"
+        "  disks                      list block devices (SATA/NVMe drives)\n"
+        "  diskread <dev> <lba>       hex dump the start of a sector\n"
+        "  diskwrites on|off          unlock/lock block writes (locked at boot)\n"
+        "  diskwrite <dev> <lba> <b> [n]  overwrite sector(s), then verify\n"
         "  venus list                 list modules, features, services\n"
         "  venus enable <name>        enable a module or feature\n"
         "  venus disable <name>       disable a module or feature\n"
@@ -320,6 +328,7 @@ static void dispatch(char *line) {
         users_list(print_user_line);
         return;
     }
+    if (disk_shell_cmd(argc, argv)) return;
     if (k_streq(argv[0], "lsdisk")) {
         disk_detect_scan();
         int n = disk_detect_count();
@@ -336,10 +345,7 @@ static void dispatch(char *line) {
                        disk_ctrl_kind_name(c->kind));
             vga_puts(line);
         }
-        vga_puts_col(
-            "note: detection only - no block driver exists yet, so nothing\n"
-            "here can actually be read from or written to.\n",
-            VGA_DARK_GREY, VGA_BLACK);
+        vga_puts_col("drives behind these controllers are listed by 'disks'\n", VGA_DARK_GREY, VGA_BLACK);
         return;
     }
     if (k_streq(argv[0], "reboot")) {
@@ -444,6 +450,20 @@ void sysvenus_main(void) {
             print_boot_line(msg, 1);
         } else {
             print_boot_line("no storage controllers detected on PCI bus", 0);
+        }
+    }
+    {
+        int sata = ahci_init();
+        if (sata > 0) {
+            char msg[64];
+            k_snprintf(msg, sizeof(msg), "%d SATA drive(s) ready (see 'disks')", sata);
+            print_boot_line(msg, 1);
+        }
+        int nv = nvme_init();
+        if (nv > 0) {
+            char msg[64];
+            k_snprintf(msg, sizeof(msg), "%d NVMe drive(s) ready (see 'disks')", nv);
+            print_boot_line(msg, 1);
         }
     }
 
