@@ -6,6 +6,7 @@
 #   make x64        just the 64-bit kernel      make i686   just the 32-bit kernel
 #   make verify     mechanical checks of the built images (header checksum, page tables, mode-switch order ...)
 #   make check      reports missing tools       make test-net   host tests for the network stack
+#   make run-ahci / run-nvme   boot in QEMU with an emulated SATA / NVMe drive    make test-disk   automated check of both
 #
 # Toolchain: works with GNU (gcc/ld) and LLVM-only systems such as Chimera Linux (clang/ld.lld).
 # Auto-detected; override explicitly with e.g.  make CC=clang LD=ld.lld
@@ -39,7 +40,7 @@ I686_OBJ    = $(patsubst %.c,build/i686/%.o,$(COMMON_SRC) $(wildcard arch/i686/*
 ISO    = vesperos4.iso
 ISODIR = iso
 
-.PHONY: all x64 i686 iso verify verify-x64 clean run run-usb run-virtio run-rtl8139 test-net test-arch test-vga test check
+.PHONY: all x64 i686 iso verify verify-x64 clean run run-usb run-virtio run-rtl8139 run-ahci run-nvme test-net test-arch test-vga test-disk test check
 
 all: x64
 
@@ -99,6 +100,17 @@ run-rtl8139: iso
 run-usb: iso
 	$(QEMU) -usb -device usb-kbd -device usb-mouse
 
+# Storage: boots against a throwaway 64M image (disk.img, created on first use, never touched by 'make clean').
+# 'disks' lists the drive, 'diskread' / 'diskwrites on' / 'diskwrite' poke at it, see docs/STORAGE.md.
+disk.img:
+	dd if=/dev/zero of=disk.img bs=1M count=64
+
+run-ahci: iso disk.img
+	$(QEMU) -boot d -drive id=d0,file=disk.img,if=none,format=raw -device ahci,id=ahci -device ide-hd,drive=d0,bus=ahci.0
+
+run-nvme: iso disk.img
+	$(QEMU) -boot d -drive id=n0,file=disk.img,if=none,format=raw -device nvme,drive=n0,serial=vesper0
+
 # Reports which build/ISO/test tools are missing on this machine.
 check:
 	@echo "compiler: $(CC)   linker: $(LD)   assembler (i686 only): $(ASM)"
@@ -125,6 +137,11 @@ test-vga:
 	gcc -DHOST_TEST -g -O1 -Wall -Wextra -fsanitize=address,undefined -fno-sanitize-recover=undefined -no-pie \
 	    -o vgatest tests/vgatest.c kernel/vga.c kernel/string.c
 	./vgatest
+
+# Boots both kernels in QEMU against emulated SATA / NVMe / 4K-sector NVMe drives and checks reads and writes
+# on the host side (needs qemu + grub-mkrescue, takes a few minutes).
+test-disk: iso
+	python3 tests/qemu_disk_test.py
 
 test: test-net test-arch test-vga verify
 
