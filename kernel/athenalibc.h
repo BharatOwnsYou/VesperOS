@@ -11,7 +11,7 @@ void  *k_memmove(void *dst, const void *src, size_t n);
 char  *k_strchr(const char *s, int c);
 char  *k_strstr(const char *haystack, const char *needle);
 
-/* very limited printf: only %s %d %u %x %c %%, no width/precision/padding. writes at most bufsz-1 bytes + NUL.
+/* very limited printf: only %s %d %u %x %c %%, no width/precision/padding. writes at most bufsz-1 bytes + NUL. */
  * returns the length it would have written (like snprintf) so truncation is detectable, nothing smarter than that */
 int k_snprintf(char *buf, size_t bufsz, const char *fmt, ...);
 /* same engine taking an already running one va_list, so other varargs funcs (stdio fprintf) can forward their arguments nigga */
